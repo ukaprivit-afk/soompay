@@ -19,8 +19,26 @@ jobs:
           java-version: 17
       - run: npm install
       - run: npx cap add android
-      - run: npx @capacitor/assets generate --android --iconBackgroundColor '#5b4bff' --splashBackgroundColor '#5b4bff'
-        continue-on-error: true
+      - run: pip install pillow
+      - run: |
+          python3 - <<'EOF'
+          from PIL import Image, ImageDraw
+          import os, shutil
+          src = Image.open("resources/icon-only.png").convert("RGBA")
+          res = "android/app/src/main/res"
+          shutil.rmtree(res + "/mipmap-anydpi-v26", ignore_errors=True)
+          for d, s in {"mdpi": 48, "hdpi": 72, "xhdpi": 96, "xxhdpi": 144, "xxxhdpi": 192}.items():
+              p = f"{res}/mipmap-{d}"
+              os.makedirs(p, exist_ok=True)
+              im = src.resize((s, s), Image.LANCZOS)
+              im.save(p + "/ic_launcher.png")
+              im.save(p + "/ic_launcher_foreground.png")
+              m = Image.new("L", (s, s), 0)
+              ImageDraw.Draw(m).ellipse((0, 0, s - 1, s - 1), fill=255)
+              r = im.copy()
+              r.putalpha(m)
+              r.save(p + "/ic_launcher_round.png")
+          EOF
       - run: npx cap sync android
       - run: chmod +x android/gradlew && cd android && ./gradlew assembleDebug
       - uses: actions/upload-artifact@v4
